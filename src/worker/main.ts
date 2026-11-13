@@ -116,22 +116,40 @@ async function main() {
 
   const [start, end] = config.hours;
   log(`상주 시작 — 정기 생성 ${start}시~${end}시 전(KST${start > end ? ", 자정 넘김" : ""}), ${config.intervalMinutes}분 간격, 시간대당 최대 ${config.dailyCandidates}개. 관리자 요청은 ${TICK_MS / 1000}초마다 확인`);
-  let nextScheduled = 0;
-  while (!stopping) {
-    try {
-      const manual = await claimManualRequest();
-      if (manual) {
-        await runBatch(manual.count, manual);
-      } else if (Date.now() >= nextScheduled && inWorkingHours()) {
-        nextScheduled = Date.now() + config.intervalMinutes * 60_000;
-        const remaining = config.dailyCandidates - (await attemptsThisWindow());
-        if (remaining > 0) await runBatch(Math.min(config.batchSize, remaining));
+
+  const wait = async (ms: number) => {
+    for (let waited = 0; waited < ms && !stopping; waited += 5_000) await sleep(5_000);
+  };
+  // 정기 생성과 관리자 요청은 따로 돈다 — 정기 묶음이 도는 중에도 버튼을 누르면 바로 시작한다.
+  // 분당 호출 한도·브릿지 사용률 대기는 프로세스 전체에서 공유하므로 둘이 겹쳐도 브릿지 부담은 같다.
+  const scheduledLoop = async () => {
+    while (!stopping) {
+      try {
+        if (inWorkingHours()) {
+          const remaining = config.dailyCandidates - (await attemptsThisWindow());
+          if (remaining > 0) await runBatch(Math.min(config.batchSize, remaining));
+        }
+      } catch (error) {
+        log("정기 묶음 실패", error);
       }
-    } catch (error) {
-      log("묶음 실패", error);
+      await wait(config.intervalMinutes * 60_000);
     }
-    for (let waited = 0; waited < TICK_MS && !stopping; waited += 5_000) await sleep(5_000);
-  }
+  };
+  const manualLoop = async () => {
+    while (!stopping) {
+      try {
+        const manual = await claimManualRequest();
+        if (manual) {
+          await runBatch(manual.count, manual);
+          continue;
+        }
+      } catch (error) {
+        log("관리자 요청 실패", error);
+      }
+      await wait(TICK_MS);
+    }
+  };
+  await Promise.all([scheduledLoop(), manualLoop()]);
 }
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
