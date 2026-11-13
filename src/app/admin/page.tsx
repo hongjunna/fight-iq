@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { hasAdminCookie, requireAdmin } from "@/lib/admin";
 import { adminLogout } from "./login/actions";
 import { db } from "@/lib/db";
-import { attempts, generationItems, questions, reports, type Question } from "@/lib/db/schema";
+import { GenerateNow, type ManualRun } from "@/components/admin/generate-now";
+import { attempts, generationItems, generationRuns, questions, reports, type Question } from "@/lib/db/schema";
 import { todayKst } from "@/lib/quiz/dates";
 import type { Sport } from "@/lib/quiz/taxonomy";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,32 @@ export default async function AdminPage() {
       .groupBy(generationItems.verdict),
   ]);
   const counts = Object.fromEntries(statusCounts.map((s) => [s.status, s.n])) as Partial<Record<keyof typeof STATUS_LABELS, number>>;
+
+  // 최근 "지금 문제 생성하기" 요청 — 진행 중이면 지금까지 처리한 결과를 바로 센다
+  const [lastManualRow] = await db
+    .select()
+    .from(generationRuns)
+    .where(sql`${generationRuns.kind} like 'manual%'`)
+    .orderBy(desc(generationRuns.startedAt))
+    .limit(1);
+  let lastManual: ManualRun = null;
+  if (lastManualRow) {
+    const stats = { ...(lastManualRow.stats as Record<string, number>) };
+    if (!lastManualRow.finishedAt) {
+      const live = await db
+        .select({ verdict: generationItems.verdict, n: count() })
+        .from(generationItems)
+        .where(eq(generationItems.runId, lastManualRow.id))
+        .groupBy(generationItems.verdict);
+      for (const l of live) stats[l.verdict] = l.n;
+    }
+    lastManual = {
+      kind: lastManualRow.kind,
+      startedAt: lastManualRow.startedAt.toISOString(),
+      finishedAt: lastManualRow.finishedAt?.toISOString() ?? null,
+      stats,
+    };
+  }
 
   return (
     <PageShell className="space-y-6">
@@ -154,6 +181,7 @@ export default async function AdminPage() {
           <CardTitle className="display-title text-xl">AI 생성 (최근 7일)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <GenerateNow last={lastManual} />
           <div className="flex flex-wrap gap-2 text-sm">
             {genWeek.length === 0 && <span className="text-muted-foreground">아직 생성 기록이 없습니다. 워커는 .env 의 FIQ_BRIDGE_KEY 가 있어야 동작합니다.</span>}
             {genWeek.map((g) => (

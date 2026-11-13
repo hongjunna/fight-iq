@@ -5,7 +5,7 @@ import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
-import { questions, reports } from "@/lib/db/schema";
+import { generationRuns, questions, reports } from "@/lib/db/schema";
 import { insertQuestions } from "@/lib/quiz/engine";
 import { questionInputSchema } from "@/lib/quiz/schema";
 
@@ -31,6 +31,30 @@ export async function resolveReport(reportId: string, outcome: "resolved" | "dis
   if (report && retireQuestion) {
     await db.update(questions).set({ status: "retired", updatedAt: new Date() }).where(eq(questions.id, report.questionId));
   }
+  revalidatePath("/admin");
+}
+
+export type GenerateState = { message?: string; error?: string };
+
+/** "지금 문제 생성하기" — 워커가 30초 안에 가져가 시간대와 관계없이 바로 만든다 (src/worker/main.ts) */
+export async function requestGeneration(_prev: GenerateState, formData: FormData): Promise<GenerateState> {
+  await requireAdmin();
+  const count = Number(formData.get("count"));
+  if (!Number.isInteger(count) || count < 1 || count > 20) return { error: "1~20개 사이로 골라 주세요" };
+  const [open] = await db
+    .select({ id: generationRuns.id })
+    .from(generationRuns)
+    .where(inArray(generationRuns.kind, ["manual-pending", "manual-running"]))
+    .limit(1);
+  if (open) return { error: "이미 진행 중인 요청이 있습니다. 끝난 뒤 다시 눌러 주세요." };
+  await db.insert(generationRuns).values({ kind: "manual-pending", stats: { requested: count } });
+  revalidatePath("/admin");
+  return { message: `${count}개 생성을 요청했습니다. 워커가 곧 시작합니다.` };
+}
+
+export async function cancelGenerationRequest() {
+  await requireAdmin();
+  await db.update(generationRuns).set({ kind: "manual-cancelled", finishedAt: new Date() }).where(eq(generationRuns.kind, "manual-pending"));
   revalidatePath("/admin");
 }
 

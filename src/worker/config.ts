@@ -35,8 +35,24 @@ export const config = {
   promptVersion: "pipeline-v4",
 };
 
+const kstHour = (now: Date) =>
+  Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", hour12: false }).format(now)) % 24;
+
+/**
+ * 생성 시간대인가. "23-9" 처럼 끝이 시작보다 작으면 자정을 넘긴다 → 23:00 ~ 다음 날 08:59 (KST).
+ * 끝 시각은 포함하지 않는다.
+ */
 export function inWorkingHours(now = new Date()) {
-  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", hour12: false }).format(now)) % 24;
+  const hour = kstHour(now);
   const [start, end] = config.hours;
   return start <= end ? hour >= start && hour < end : hour >= start || hour < end;
+}
+
+/** 지금 속한 생성 시간대가 시작된 시각 — 하루 한도를 '달력 날짜'가 아니라 '시간대 한 번'으로 센다 */
+export function windowStart(now = new Date()) {
+  const [start] = config.hours;
+  const hoursSinceStart = (kstHour(now) - start + 24) % 24;
+  const t = new Date(now.getTime() - hoursSinceStart * 3_600_000);
+  t.setUTCMinutes(0, 0, 0);
+  return t;
 }
