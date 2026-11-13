@@ -1,0 +1,162 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-heading: var(--font-display), var(--font-body), sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Fight IQ 전용 토큰 */
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-ring-canvas: var(--ring-canvas);
+  --color-belt-white: var(--belt-white);
+  --color-belt-blue: var(--belt-blue);
+  --color-belt-purple: var(--belt-purple);
+  --color-belt-brown: var(--belt-brown);
+  --color-belt-black: var(--belt-black);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Fight IQ: 링 조명 아래 어두운 캔버스 + 코너 레드 강조 + 챔피언 벨트 골드.
+ * shadcn 컴포넌트는 그대로 두고 토큰만 바꾼다 (docs/기획서.md §15).
+ */
+:root {
+  --fiq-red: oklch(0.56 0.21 27);
+  --background: oklch(0.985 0.003 60);
+  --foreground: oklch(0.2 0.012 30);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.012 30);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.012 30);
+  --primary: var(--fiq-red);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.006 40);
+  --secondary-foreground: oklch(0.25 0.015 30);
+  --muted: oklch(0.955 0.005 40);
+  --muted-foreground: oklch(0.5 0.015 30);
+  --accent: oklch(0.95 0.02 27);
+  --accent-foreground: oklch(0.3 0.08 27);
+  --destructive: oklch(0.55 0.2 25);
+  --border: oklch(0.9 0.008 40);
+  --input: oklch(0.88 0.01 40);
+  --ring: oklch(0.6 0.18 27);
+  --gold: oklch(0.72 0.14 80);
+  --gold-foreground: oklch(0.22 0.04 70);
+  --success: oklch(0.6 0.15 150);
+  --ring-canvas: oklch(0.96 0.006 40);
+  --belt-white: oklch(0.96 0 0);
+  --belt-blue: oklch(0.52 0.17 255);
+  --belt-purple: oklch(0.48 0.18 305);
+  --belt-brown: oklch(0.45 0.08 55);
+  --belt-black: oklch(0.18 0 0);
+  --radius: 0.75rem;
+}
+
+.dark {
+  --fiq-red: oklch(0.62 0.21 27);
+  --background: oklch(0.155 0.008 30);
+  --foreground: oklch(0.96 0.005 60);
+  --card: oklch(0.2 0.01 30);
+  --card-foreground: oklch(0.96 0.005 60);
+  --popover: oklch(0.21 0.01 30);
+  --popover-foreground: oklch(0.96 0.005 60);
+  --primary: var(--fiq-red);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.26 0.012 30);
+  --secondary-foreground: oklch(0.96 0.005 60);
+  --muted: oklch(0.24 0.01 30);
+  --muted-foreground: oklch(0.7 0.012 50);
+  --accent: oklch(0.3 0.05 27);
+  --accent-foreground: oklch(0.96 0.005 60);
+  --destructive: oklch(0.66 0.19 25);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.62 0.18 27);
+  --gold: oklch(0.82 0.14 82);
+  --gold-foreground: oklch(0.2 0.04 70);
+  --success: oklch(0.72 0.15 150);
+  --ring-canvas: oklch(0.18 0.009 30);
+  --belt-white: oklch(0.94 0 0);
+  --belt-blue: oklch(0.6 0.16 255);
+  --belt-purple: oklch(0.58 0.17 305);
+  --belt-brown: oklch(0.55 0.08 55);
+  --belt-black: oklch(0.1 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    word-break: keep-all;
+  }
+  html {
+    @apply font-sans;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="combobox"],
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  select,
+  summary {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
+  }
+}
+
+@layer components {
+  /* 링 조명: 페이지 상단에서 내려오는 은은한 스포트라이트 */
+  .spotlight {
+    background-image: radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in oklch, var(--primary) 18%, transparent), transparent 70%);
+  }
+  .display-title {
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

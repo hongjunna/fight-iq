@@ -1,0 +1,93 @@
+name: fightiq
+
+x-app: &app
+  build:
+    context: .
+    args:
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://fightiq.runvia.app}
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
+      DEPLOYMENT_VERSION: ${DEPLOYMENT_VERSION:-local}
+  restart: unless-stopped
+  environment:
+    DATABASE_URL: postgres://fightiq:${POSTGRES_PASSWORD:?set in .env}@db:5432/fightiq
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+    # /admin 에 들어갈 수 있는 구글 계정 (쉼표 구분)
+    ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+    # Firebase 없이 /admin 에 들어가는 비밀번호 (8자 이상). /admin/login
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    DEPLOYMENT_VERSION: ${DEPLOYMENT_VERSION:-local}
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  # deploy.sh 가 두 슬롯을 번갈아 쓴다. 트래픽은 활성 슬롯만 받고, 직전 릴리스는 롤백용으로 남는다.
+  app-blue:
+    <<: *app
+    image: fight-iq:${IMAGE_TAG:-latest}
+    profiles: [deployment]
+
+  app-green:
+    <<: *app
+    image: fight-iq:${IMAGE_TAG:-latest}
+    profiles: [deployment]
+
+  # 호스트 nginx 가 바라보는 고정 주소. 새 슬롯이 건강해지면 deploy.sh 가 이 프록시를 다시 읽힌다.
+  gateway:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_PORT:-6060}:80"
+    volumes:
+      - ./.deploy/nginx:/etc/nginx/conf.d:ro
+
+  # AI 문제 생성 워커 (docs/샘플문제_평가.md). desktop-ai 브릿지에 붙는다.
+  # deploy.sh 는 .env 에 FIQ_BRIDGE_KEY 가 있을 때만 띄운다.
+  worker:
+    build:
+      context: .
+      target: worker
+    image: fight-iq-worker:${IMAGE_TAG:-latest}
+    profiles: [worker]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://fightiq:${POSTGRES_PASSWORD:?set in .env}@db:5432/fightiq
+      FIQ_BRIDGE_URL: ${FIQ_BRIDGE_URL:-http://junlab-ai:8000}
+      FIQ_BRIDGE_KEY: ${FIQ_BRIDGE_KEY:-}
+      WORKER_HOURS: ${WORKER_HOURS:-1-8}
+      WORKER_BATCH: ${WORKER_BATCH:-6}
+      WORKER_DAILY_CANDIDATES: ${WORKER_DAILY_CANDIDATES:-120}
+      WORKER_MAX_RPM: ${WORKER_MAX_RPM:-15}
+      WORKER_MAX_BRIDGE_SHARE: ${WORKER_MAX_BRIDGE_SHARE:-0.5}
+      WORKER_AUTO_PUBLISH: ${WORKER_AUTO_PUBLISH:-on}
+    networks: [default, junlab-ai]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fightiq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: fightiq
+      TZ: Asia/Seoul
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fightiq -d fightiq"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+
+networks:
+  # desktop-ai 가 만든 외부 네트워크 (워커만 쓴다)
+  junlab-ai:
+    external: true
