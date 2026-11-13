@@ -17,7 +17,7 @@ export async function setQuestionStatus(ids: string[], status: "published" | "re
     .update(questions)
     .set({ status, updatedAt: new Date(), ...(status === "published" ? { publishedAt: new Date() } : {}) })
     .where(inArray(questions.id, parsed.data));
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function resolveReport(reportId: string, outcome: "resolved" | "dismissed", retireQuestion: boolean) {
@@ -31,7 +31,7 @@ export async function resolveReport(reportId: string, outcome: "resolved" | "dis
   if (report && retireQuestion) {
     await db.update(questions).set({ status: "retired", updatedAt: new Date() }).where(eq(questions.id, report.questionId));
   }
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export type GenerateState = { message?: string; error?: string };
@@ -48,14 +48,14 @@ export async function requestGeneration(_prev: GenerateState, formData: FormData
     .limit(1);
   if (open) return { error: "이미 진행 중인 요청이 있습니다. 끝난 뒤 다시 눌러 주세요." };
   await db.insert(generationRuns).values({ kind: "manual-pending", stats: { requested: count } });
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return { message: `${count}개 생성을 요청했습니다. 워커가 곧 시작합니다.` };
 }
 
 export async function cancelGenerationRequest() {
   await requireAdmin();
   await db.update(generationRuns).set({ kind: "manual-cancelled", finishedAt: new Date() }).where(eq(generationRuns.kind, "manual-pending"));
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export type ImportState = { message?: string; errors?: string[] };
@@ -82,6 +82,6 @@ export async function importQuestions(_prev: ImportState, formData: FormData): P
     else errors.push(`#${i + 1}: ${parsed.error.issues.map((x) => `${x.path.join(".")} ${x.message}`).join(", ")}`);
   }
   const { inserted, duplicates } = valid.length ? await insertQuestions(valid) : { inserted: 0, duplicates: 0 };
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
   return { message: `${inserted}개 추가, 중복 ${duplicates}개 건너뜀, 오류 ${errors.length}개`, errors: errors.slice(0, 20) };
 }

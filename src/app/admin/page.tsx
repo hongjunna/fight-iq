@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { hasAdminCookie, requireAdmin } from "@/lib/admin";
 import { adminLogout } from "./login/actions";
 import { db } from "@/lib/db";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { GenerateNow, type ManualRun } from "@/components/admin/generate-now";
 import { attempts, generationItems, generationRuns, questions, reports, type Question } from "@/lib/db/schema";
 import { todayKst } from "@/lib/quiz/dates";
@@ -93,6 +94,7 @@ export default async function AdminPage() {
           </form>
         )}
       </div>
+      <AdminNav current="/admin" />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {(Object.keys(STATUS_LABELS) as (keyof typeof STATUS_LABELS)[]).map((s) => (
